@@ -25,4 +25,6 @@ interface JCollateralCapErc20 {
     function approve(address spender, uint256 amount) external returns (bool);
 
     function mint(uint256 mintAmount) external returns (uint256);
+
+    function underlying() external view returns (address);
 }

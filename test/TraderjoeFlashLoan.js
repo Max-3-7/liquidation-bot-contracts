@@ -132,7 +132,7 @@ describe('TraderjoeFlashLoan', function () {
       const supplyValueUSD = avaxPriceUSD * supplyAmount / pow(10, WAVAX_DECIMALS)//avaxPrice.mul(supplyAmount).div(new BN(10).pow(new BN(WAVAX_DECIMALS))).div(new BN(10).pow(new BN(WAVAX_DECIMALS)))//(supplyAmount * avaxPriceUSD) / pow(10, WAVAX_DECIMALS)
       console.log("Supply value USD", supplyValueUSD)
       //(maxBorrowUSD / avaxPriceUSD) * pow(10, jAVAX_DECIMALS)
-      const borrowAmount = supplyValueUSD * pow(10, USDC_DECIMALS) * 0.75 * (9998 / 10000)//supplyValueUSD.mul(new BN(pow(10, USDC_DECIMALS))).muln(75).divn(100)
+      const borrowAmount = supplyValueUSD * pow(10, USDC_DECIMALS) * 0.75 * (9999 / 10000)//supplyValueUSD.mul(new BN(pow(10, USDC_DECIMALS))).muln(75).divn(100)
       console.log("Borrow amount", borrowAmount)
       await jUSDCtoken.borrow(Math.trunc(borrowAmount), { from: BORROWER })
 
@@ -144,7 +144,7 @@ describe('TraderjoeFlashLoan', function () {
       // const repayAmount = borrowAmount.muln(50).divn(100)
       // console.log("Repay amount", BigInt(repayAmount))
 
-      await usdcToken.transfer(testTraderJoeFlashLoan.address, 10000 * pow(10, USDC_DECIMALS), { from: USDC_WHALE })
+      // await usdcToken.transfer(testTraderJoeFlashLoan.address, 10000 * pow(10, USDC_DECIMALS), { from: USDC_WHALE })
       
       await testTraderJoeFlashLoan.liquidate(BORROWER, jUSDCtoken.address, Math.trunc(borrowAmount / 2), jAVAXToken.address)
 
