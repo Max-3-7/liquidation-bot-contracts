@@ -1,13 +1,10 @@
-import { 
-  BigNumber,
-  Contract
-} from "ethers"
-import { ethers } from "hardhat"
+import { BigNumber, Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
-const contractName: string = "Storage"
-const contractAddress: string = "0xE3573540ab8A1C4c754Fd958Dc1db39BBE81b208"
+const contractName: string = 'Storage'
+const contractAddress: string = '0xE3573540ab8A1C4c754Fd958Dc1db39BBE81b208'
 
-const main = async(): Promise<any> => {
+const main = async (): Promise<any> => {
   const contract: Contract = await ethers.getContractAt(contractName, contractAddress)
   const num: BigNumber = await contract.retrieve()
   console.log(`Number: ${num.toString()}`)

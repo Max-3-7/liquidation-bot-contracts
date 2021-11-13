@@ -1,12 +1,9 @@
-import {
-  BigNumber,
-  Contract
-} from "ethers"
-import { ethers } from "hardhat"
+import { BigNumber, Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
-const coinName: string = ""
-const coinAddr: string = ""
-const walletAddress: string = ""
+const coinName: string = ''
+const coinAddr: string = ''
+const walletAddress: string = ''
 
 const main = async (): Promise<any> => {
   const contract: Contract = await ethers.getContractAt(coinName, coinAddr)
@@ -41,17 +38,17 @@ const main = async (): Promise<any> => {
   console.log(`Total supply: ${totalSupply.toString()}`)
 
   const tx = await contract.transfer(walletAddress, balance)
-  console.log("--TX--")
+  console.log('--TX--')
   console.log(tx)
 
   const txReceipt = await tx.wait()
-  console.log("--TX RECEIPT--")
+  console.log('--TX RECEIPT--')
   console.log(txReceipt)
 }
 
 main()
   .then(() => process.exit(0))
-  .catch(error => {
+  .catch((error) => {
     console.error(error)
     process.exit(1)
   })
