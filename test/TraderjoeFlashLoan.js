@@ -14,6 +14,9 @@ describe('TraderjoeFlashLoan', function () {
   const USDC_WHALE = '0x2d1944bD960CDE5d8b14E5f8093d9E017f4Ce5A8'
   const WAVAX_WHALE = '0xda6ad74619e62503C4cbefbE02aE05c8F4314591'
 
+  const JOETROLLER = '0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC'
+  const PRICE_ORACLE = '0xe34309613B061545d42c4160ec4d64240b114482'
+
   const USDC = '0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664'
   const USDC_DECIMALS = 6
 
@@ -88,11 +91,11 @@ describe('TraderjoeFlashLoan', function () {
       await jAVAXToken.mint(supplyAmount, { from: BORROWER })
 
       // enter market
-      const joetroller = await Joetroller.at('0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC')
+      const joetroller = await Joetroller.at(JOETROLLER)
       await joetroller.enterMarkets([jAVAXToken.address], { from: BORROWER })
 
       // borrow
-      const priceOracle = await PriceOracle.at('0xe34309613B061545d42c4160ec4d64240b114482')
+      const priceOracle = await PriceOracle.at(PRICE_ORACLE)
       const avaxPrice = await priceOracle.getUnderlyingPrice(jAVAX)
       const avaxPriceUSD = avaxPrice / pow(10, WAVAX_DECIMALS)
       console.log('Avax price', avaxPriceUSD)
@@ -113,6 +116,9 @@ describe('TraderjoeFlashLoan', function () {
         Math.trunc(borrowAmount / 2),
         jAVAXToken.address
       )
+
+      const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.065
+      expect(Number(await usdcToken.balanceOf(testTraderJoeFlashLoan.address))).to.be.at.least(expectedProfitInUSDC)
     })
   })
 })

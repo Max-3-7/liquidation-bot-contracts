@@ -24,6 +24,7 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
 
     address private constant WAVAX = 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7;
     address private constant JAVAX = 0xC22F01ddc8010Ee05574028528614634684EC29e;
+    address private constant USDC = 0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664;
     address private constant JUSDC = 0xEd6AaF91a2B084bd594DBd1245be3691F9f637aC;
     address private constant JUSDT = 0x8b650e26404AC6837539ca96812f0123601E4448;
 
@@ -161,12 +162,7 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
             "liquidation failed"
         );
 
-        swapSeizedTokens(collateralAsset, token);
-
-        console.log(
-            "Profit after repaying amountOwing",
-            IERC20(token).balanceOf(address(this)) - amountOwing
-        );
+        swapSeizedTokens(collateralAsset, token, amountOwing);
 
         return keccak256("ERC3156FlashBorrowerInterface.onFlashLoan");
     }
@@ -227,7 +223,11 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
         return amountOutMins[path.length - 1];
     }
 
-    function swapSeizedTokens(address seizedAsset, address token) private {
+    function swapSeizedTokens(
+        address seizedAsset,
+        address token,
+        uint256 amountOwing
+    ) private {
         // redeem jAsset
         uint256 underlyingSeizedTokens = JCollateralCapErc20(seizedAsset)
             .balanceOfUnderlying(address(this));
@@ -255,9 +255,20 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
             address(this)
         );
 
-        // 5. swap remaining seized token to USDC if not already USDC
-        // console.log("Amount of borrowed token, should be around 2000", IERC20(token).balanceOf(address(this)));
-
-        // 6. Store stable in smart contract, make a function to withdraw it to owner
+        // swap profits to USDC if needed
+        if (seizedAsset != JUSDC) {
+            uint256 tokenAmount = IERC20(token).balanceOf(address(this));
+            uint256 profitTokens = tokenAmount - amountOwing;
+            swap(token, USDC, profitTokens, 1, address(this));
+            console.log(
+                "Profit in USDC after repaying amountOwing",
+                profitTokens
+            );
+        } else {
+            console.log(
+                "Profit in USDC after repaying amountOwing",
+                IERC20(USDC).balanceOf(address(this)) - amountOwing
+            );
+        }
     }
 }
