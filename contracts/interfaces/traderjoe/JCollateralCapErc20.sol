@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8;
 
-import "./JTokenInterface.sol";
-import "./ERC3156FlashBorrowerInterface.sol";
+import './JTokenInterface.sol';
+import './ERC3156FlashBorrowerInterface.sol';
 
 interface JCollateralCapErc20 {
     function liquidateBorrow(

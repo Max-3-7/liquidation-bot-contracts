@@ -110,12 +110,7 @@ describe('TraderjoeFlashLoan', function () {
       // NOTE : adjust block number to have account with positive shortfall
       await time.advanceBlockTo(block + 50000)
 
-      await traderJoeLiquidator.liquidate(
-        BORROWER,
-        jUSDCtoken.address,
-        Math.trunc(borrowAmount / 2),
-        jAVAXToken.address
-      )
+      await traderJoeLiquidator.liquidate(BORROWER, jUSDCtoken.address, jAVAXToken.address)
 
       const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.065
       expect(Number(await usdcToken.balanceOf(traderJoeLiquidator.address))).to.be.at.least(expectedProfitInUSDC)
