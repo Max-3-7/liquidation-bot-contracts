@@ -12,7 +12,7 @@ import "./interfaces/traderjoe/JoeRouter02.sol";
 
 import "hardhat/console.sol";
 
-contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
+contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
     using SafeMath for uint256;
 
     address private constant JOE_ROUTER =

@@ -30,8 +30,8 @@ describe('TraderjoeFlashLoan', function () {
   const WAVAX_DECIMALS = 18
 
   describe('testFlashLoan', function () {
-    let TestTraderJoeFlashLoan
-    let testTraderJoeFlashLoan
+    let TraderJoeLiquidator
+    let traderJoeLiquidator
 
     let jUSDCtoken
     let usdcToken
@@ -39,12 +39,12 @@ describe('TraderjoeFlashLoan', function () {
     let wavaxToken
 
     before(async function () {
-      TestTraderJoeFlashLoan = await ethers.getContractFactory('TestTraderJoeFlashLoan')
+      TraderJoeLiquidator = await ethers.getContractFactory('TraderJoeLiquidator')
     })
 
     beforeEach(async function () {
-      testTraderJoeFlashLoan = await TestTraderJoeFlashLoan.deploy()
-      await testTraderJoeFlashLoan.deployed()
+      traderJoeLiquidator = await TraderJoeLiquidator.deploy()
+      await traderJoeLiquidator.deployed()
 
       jUSDCtoken = await JCollateralCapErc20.at(jUSDC)
       usdcToken = await IERC20.at(USDC)
@@ -110,7 +110,7 @@ describe('TraderjoeFlashLoan', function () {
       // NOTE : adjust block number to have account with positive shortfall
       await time.advanceBlockTo(block + 50000)
 
-      await testTraderJoeFlashLoan.liquidate(
+      await traderJoeLiquidator.liquidate(
         BORROWER,
         jUSDCtoken.address,
         Math.trunc(borrowAmount / 2),
@@ -118,7 +118,7 @@ describe('TraderjoeFlashLoan', function () {
       )
 
       const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.065
-      expect(Number(await usdcToken.balanceOf(testTraderJoeFlashLoan.address))).to.be.at.least(expectedProfitInUSDC)
+      expect(Number(await usdcToken.balanceOf(traderJoeLiquidator.address))).to.be.at.least(expectedProfitInUSDC)
     })
   })
 })
