@@ -5,11 +5,9 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./interfaces/traderjoe/ERC3156FlashBorrowerInterface.sol";
-import "./interfaces/traderjoe/ERC3156FlashLenderInterface.sol";
 import "./interfaces/traderjoe/JCollateralCapErc20.sol";
 import "./interfaces/traderjoe/JTokenInterface.sol";
 import "./interfaces/traderjoe/Joetroller.sol";
-import "./Liquidator.sol";
 import "./interfaces/traderjoe/JoeRouter02.sol";
 
 import "hardhat/console.sol";
@@ -23,23 +21,22 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
         0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC;
     address private constant PRICE_ORACLE =
         0xe34309613B061545d42c4160ec4d64240b114482;
+
     address private constant WAVAX = 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7;
     address private constant JAVAX = 0xC22F01ddc8010Ee05574028528614634684EC29e;
     address private constant JUSDC = 0xEd6AaF91a2B084bd594DBd1245be3691F9f637aC;
-
-    Liquidator public liquidator;
+    address private constant JUSDT = 0x8b650e26404AC6837539ca96812f0123601E4448;
 
     address public owner;
 
-    constructor(Liquidator _liquidator) {
-        liquidator = _liquidator;
+    constructor() {
         owner = msg.sender;
     }
 
     function liquidate(
         address borrower,
         address repayAsset,
-        uint256 repayAmount,
+        uint256 repayAmount, // TODO: I think the smart contract should determine how much to borrow based on joetroller close factor
         address collateralAsset
     ) external {
         require(msg.sender == owner, "not owner");
@@ -70,10 +67,20 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
         console.log("Liquidity", liquidity);
         console.log("Shortfall", shortfall);
 
+        // NOTE : borrowed, seized and repayed assets has to be different because of nonReentrant functions
+        // TODO: handle all possible cases
         address borrowAsset;
         uint256 borrowAmount;
         if (repayAsset == JAVAX) {
             borrowAsset = JUSDC;
+            borrowAmount =
+                (PriceOracle(PRICE_ORACLE).getUnderlyingPrice(
+                    JToken(repayAsset)
+                ) * repayAmount) /
+                10**18 /
+                10**12; // TODO: DECIMALS ?
+        } else if (collateralAsset == JAVAX) {
+            borrowAsset = JUSDT;
             borrowAmount =
                 (PriceOracle(PRICE_ORACLE).getUnderlyingPrice(
                     JToken(repayAsset)
@@ -92,9 +99,9 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
         console.log("BORROW ASSET", borrowAsset);
         console.log("BORROW AMOUNT", borrowAmount);
 
-        ERC3156FlashLenderInterface(borrowAsset).flashLoan(
+        JCollateralCapErc20(borrowAsset).flashLoan(
             this,
-            borrowAsset,
+            address(this),
             borrowAmount,
             data
         );
@@ -132,10 +139,15 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
         address repayAssetUnderlying = JCollateralCapErc20(repayAsset)
             .underlying();
         console.log("repayAssetUnderlying", repayAssetUnderlying);
-        swap(token, repayAssetUnderlying, amount, 1, address(this));
+        swap(token, repayAssetUnderlying, amount, 1, address(this)); // TODO: not 1 but getAmountOutMin ?
         console.log(
             "Repay asset amount",
             JToken(repayAssetUnderlying).balanceOf(address(this))
+        );
+
+        console.log(
+            "Seized tokens before liquidate borrow",
+            JCollateralCapErc20(collateralAsset).balanceOf(address(this))
         );
 
         // 2. liquidateBorrow
@@ -149,36 +161,12 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
             "liquidation failed"
         );
 
-        // 3. redeem seized token
-        console.log(
-            "Seized tokens",
-            JCollateralCapErc20(collateralAsset).balanceOf(address(this))
-        );
-        JCollateralCapErc20(collateralAsset).redeemUnderlying(
-            JCollateralCapErc20(collateralAsset).balanceOf(address(this))
-        );
+        swapSeizedTokens(collateralAsset, token);
 
-        // 4. swap seized token for token (amountOwning)
-        address seizedToken = JCollateralCapErc20(collateralAsset).underlying();
         console.log(
-            "Seized tokens underlying",
-            IERC20(seizedToken).balanceOf(address(this))
+            "Profit after repaying amountOwing",
+            IERC20(token).balanceOf(address(this)) - amountOwing
         );
-        uint256 amountOutMin = getAmountOutMin(
-            seizedToken,
-            token,
-            IERC20(seizedToken).balanceOf(address(this))
-        );
-        swap(
-            seizedToken,
-            token,
-            IERC20(seizedToken).balanceOf(address(this)),
-            amountOutMin,
-            address(this)
-        );
-
-        // 5. swap remaining seized token to AVAX
-        // 6. Store avax in smart contract
 
         return keccak256("ERC3156FlashBorrowerInterface.onFlashLoan");
     }
@@ -217,7 +205,7 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
         address tokenIn,
         address tokenOut,
         uint256 amountIn
-    ) private returns (uint256) {
+    ) private view returns (uint256) {
         address[] memory path;
         if (tokenIn == WAVAX || tokenOut == WAVAX) {
             path = new address[](2);
@@ -237,5 +225,39 @@ contract TestTraderJoeFlashLoan is ERC3156FlashBorrowerInterface {
         );
 
         return amountOutMins[path.length - 1];
+    }
+
+    function swapSeizedTokens(address seizedAsset, address token) private {
+        // redeem jAsset
+        uint256 underlyingSeizedTokens = JCollateralCapErc20(seizedAsset)
+            .balanceOfUnderlying(address(this));
+        console.log("Seized tokens", underlyingSeizedTokens);
+        JCollateralCapErc20(seizedAsset).redeemUnderlying(
+            underlyingSeizedTokens
+        );
+
+        // swap seized tokens for borrowed asset
+        address seizedUnderlyingAsset = JCollateralCapErc20(seizedAsset)
+            .underlying();
+        console.log("Seized tokens underlying address", seizedUnderlyingAsset);
+        uint256 seizedUnderlyingTokens = IERC20(seizedUnderlyingAsset)
+            .balanceOf(address(this));
+        console.log("Seized tokens underlying", seizedUnderlyingTokens);
+        swap(
+            seizedUnderlyingAsset,
+            token,
+            seizedUnderlyingTokens,
+            getAmountOutMin(
+                seizedUnderlyingAsset,
+                token,
+                seizedUnderlyingTokens
+            ),
+            address(this)
+        );
+
+        // 5. swap remaining seized token to USDC if not already USDC
+        // console.log("Amount of borrowed token, should be around 2000", IERC20(token).balanceOf(address(this)));
+
+        // 6. Store stable in smart contract, make a function to withdraw it to owner
     }
 }

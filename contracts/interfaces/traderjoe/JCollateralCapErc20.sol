@@ -2,6 +2,7 @@
 pragma solidity ^0.8;
 
 import "./JTokenInterface.sol";
+import "./ERC3156FlashBorrowerInterface.sol";
 
 interface JCollateralCapErc20 {
     function liquidateBorrow(
@@ -27,4 +28,11 @@ interface JCollateralCapErc20 {
     function mint(uint256 mintAmount) external returns (uint256);
 
     function underlying() external view returns (address);
+
+    function flashLoan(
+        ERC3156FlashBorrowerInterface receiver,
+        address initiator,
+        uint256 amount,
+        bytes calldata data
+    ) external returns (bool);
 }

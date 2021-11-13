@@ -64,7 +64,7 @@ export default {
   },
   networks: {
     hardhat: {
-      gasPrice: 225000000000,
+      gasPrice: 290463691164,
       networkId: !forkingData ? 43112 : undefined, //Only specify a chainId if we are not forking
       forking: forkingData
     },
