@@ -38,13 +38,11 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
     function liquidate(
         address borrower,
         address repayAsset,
-        // uint256 repayAmount, // TODO: I think the smart contract should determine how much to borrow based on joetroller close factor
         address collateralAsset
     ) external {
         require(msg.sender == owner, 'not owner');
 
         console.log('Repay asset', repayAsset);
-        // console.log("Repay amount", repayAmount);
 
         bytes memory data = abi.encode(borrower, repayAsset, collateralAsset);
 
