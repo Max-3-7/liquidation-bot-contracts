@@ -10,7 +10,7 @@ const Joetroller = artifacts.require('Joetroller')
 const PriceOracle = artifacts.require('PriceOracle')
 const JToken = artifacts.require('JToken')
 
-describe('TraderjoeFlashLoan', function () {
+describe('TraderJoeLiquidator', function () {
   const USDC_WHALE = '0x2d1944bD960CDE5d8b14E5f8093d9E017f4Ce5A8'
   const WAVAX_WHALE = '0xda6ad74619e62503C4cbefbE02aE05c8F4314591'
 
@@ -29,10 +29,13 @@ describe('TraderjoeFlashLoan', function () {
   const WAVAX = '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7'
   const WAVAX_DECIMALS = 18
 
-  describe('testFlashLoan', function () {
+  describe('Liquidations', function () {
+    let signersIndex = 0
+
     let TraderJoeLiquidator
     let traderJoeLiquidator
 
+    let joetroller
     let jUSDCtoken
     let usdcToken
     let jAVAXToken
@@ -46,6 +49,7 @@ describe('TraderjoeFlashLoan', function () {
       traderJoeLiquidator = await TraderJoeLiquidator.deploy()
       await traderJoeLiquidator.deployed()
 
+      joetroller = await Joetroller.at(JOETROLLER)
       jUSDCtoken = await JCollateralCapErc20.at(jUSDC)
       usdcToken = await IERC20.at(USDC)
       jAVAXToken = await JCollateralCapErc20.at(jAVAX)
@@ -78,9 +82,7 @@ describe('TraderjoeFlashLoan', function () {
     })
 
     it('should repay USDC and seize AVAX', async () => {
-      const accounts = await hre.ethers.getSigners()
-      const BORROWER = accounts[0].address
-      await network.provider.send('hardhat_setBalance', [BORROWER, '0x6750000000000000000000000'])
+      const BORROWER = await initializeFreshAccount()
 
       // fund borrower
       const supplyAmount = new BN(10).pow(new BN(WAVAX_DECIMALS)).muln(50)
@@ -91,13 +93,10 @@ describe('TraderjoeFlashLoan', function () {
       await jAVAXToken.mint(supplyAmount, { from: BORROWER })
 
       // enter market
-      const joetroller = await Joetroller.at(JOETROLLER)
       await joetroller.enterMarkets([jAVAXToken.address], { from: BORROWER })
 
       // borrow
-      const priceOracle = await PriceOracle.at(PRICE_ORACLE)
-      const avaxPrice = await priceOracle.getUnderlyingPrice(jAVAX)
-      const avaxPriceUSD = avaxPrice / pow(10, WAVAX_DECIMALS)
+      const avaxPriceUSD = await getAvaxPriceUSD()
       console.log('Avax price', avaxPriceUSD)
       const supplyValueUSD = (avaxPriceUSD * supplyAmount) / pow(10, WAVAX_DECIMALS)
       console.log('Supply value USD', supplyValueUSD)
@@ -115,5 +114,45 @@ describe('TraderjoeFlashLoan', function () {
       const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.065
       expect(Number(await usdcToken.balanceOf(traderJoeLiquidator.address))).to.be.at.least(expectedProfitInUSDC)
     })
+
+    it('should repay AVAX and seize AVAX', async () => {
+      const BORROWER = await initializeFreshAccount()
+
+      // fund borrower
+      const supplyAmount = new BN(10).pow(new BN(WAVAX_DECIMALS)).muln(50)
+      await wavaxToken.transfer(BORROWER, supplyAmount, { from: WAVAX_WHALE })
+
+      // mint jAVAX
+      await wavaxToken.approve(jAVAXToken.address, supplyAmount, { from: BORROWER })
+      await jAVAXToken.mint(supplyAmount, { from: BORROWER })
+
+      // enter market
+      await joetroller.enterMarkets([jAVAXToken.address], { from: BORROWER })
+
+      // borrow AVAX
+      const borrowAmount = supplyAmount.muln(0.75)
+      await jAVAXToken.borrow(borrowAmount, { from: BORROWER })
+
+      // accrue interest on borrow
+      const block = await web3.eth.getBlockNumber()
+      // NOTE : adjust block number to have account with positive shortfall
+      await time.advanceBlockTo(block + 50000)
+
+      await traderJoeLiquidator.liquidate(BORROWER, jAVAXToken.address, jAVAXToken.address)
+    })
+
+    async function initializeFreshAccount() {
+      const accounts = await hre.ethers.getSigners()
+      const borrower = accounts[signersIndex].address
+      await network.provider.send('hardhat_setBalance', [borrower, '0x6750000000000000000000000'])
+      signersIndex += 1
+      return borrower
+    }
+
+    async function getAvaxPriceUSD() {
+      const priceOracle = await PriceOracle.at(PRICE_ORACLE)
+      const avaxPrice = await priceOracle.getUnderlyingPrice(jAVAX)
+      return avaxPrice / pow(10, WAVAX_DECIMALS)
+    }
   })
 })

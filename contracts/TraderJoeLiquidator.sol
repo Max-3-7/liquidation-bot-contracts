@@ -57,7 +57,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         uint256 repayAmount = borrowBalance * joetroller.closeFactorMantissa();
         console.log('Repay amount', repayAmount);
 
-        // NOTE : borrowed, seized and repayed assets has to be different because of nonReentrant functions
+        // NOTE : borrowed/seized and borrowed/repayed assets have to be different because of nonReentrant functions
         // TODO: handle all possible cases
         address borrowAsset;
         uint256 borrowAmount;
@@ -114,8 +114,9 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         // 1. swap token for repayAsset underlying
         address repayAssetUnderlying = JCollateralCapErc20(repayAsset).underlying();
         console.log('repayAssetUnderlying', repayAssetUnderlying);
-        swap(token, repayAssetUnderlying, amount, 1, address(this)); // TODO: not 1 but getAmountOutMin ?
-        console.log('Repay asset amount', JToken(repayAssetUnderlying).balanceOf(address(this)));
+        uint256 repayAssetUnderlyingTokens = getAmountOutMin(token, repayAssetUnderlying, amount);
+        swap(token, repayAssetUnderlying, amount, repayAssetUnderlyingTokens, address(this));
+        console.log('Repay asset amount', repayAssetUnderlyingTokens);
 
         console.log(
             'Seized tokens before liquidate borrow',
@@ -123,11 +124,11 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         );
 
         // 2. liquidateBorrow
-        IERC20(repayAssetUnderlying).approve(repayAsset, amount);
+        IERC20(repayAssetUnderlying).approve(repayAsset, repayAssetUnderlyingTokens);
         require(
             JCollateralCapErc20(repayAsset).liquidateBorrow(
                 borrower,
-                JToken(repayAssetUnderlying).balanceOf(address(this)),
+                repayAssetUnderlyingTokens,
                 JTokenInterface(collateralAsset)
             ) == 0,
             'liquidation failed'
@@ -209,7 +210,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         );
 
         // swap profits to USDC if needed
-        if (seizedAsset != JUSDC) {
+        if (token != USDC) {
             uint256 tokenAmount = IERC20(token).balanceOf(address(this));
             uint256 profitTokens = tokenAmount - amountOwing;
             swap(token, USDC, profitTokens, 1, address(this));
