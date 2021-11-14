@@ -79,7 +79,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
             borrowAsset = JAVAX;
             borrowAmount =
                 (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) /
-                priceOracle.getUnderlyingPrice(JToken(JAVAX)); // TODO: DECIMALS ?
+                priceOracle.getUnderlyingPrice(JToken(JAVAX)) / 10**18; // TODO: DECIMALS ?
         }
 
         console.log('BORROW ASSET', borrowAsset);
@@ -124,6 +124,10 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         );
 
         // 2. liquidateBorrow
+        uint256 maxRepayAmount = JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower) * joetroller.closeFactorMantissa();
+        if (repayAssetUnderlyingTokens > maxRepayAmount) {
+            repayAssetUnderlyingTokens = maxRepayAmount;
+        }
         IERC20(repayAssetUnderlying).approve(repayAsset, repayAssetUnderlyingTokens);
         require(
             JCollateralCapErc20(repayAsset).liquidateBorrow(
@@ -214,7 +218,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
             uint256 tokenAmount = IERC20(token).balanceOf(address(this));
             uint256 profitTokens = tokenAmount - amountOwing;
             swap(token, USDC, profitTokens, 1, address(this));
-            console.log('Profit in USDC after repaying amountOwing', profitTokens);
+            console.log('Profit in USDC after repaying amountOwing', IERC20(USDC).balanceOf(address(this)));
         } else {
             console.log(
                 'Profit in USDC after repaying amountOwing',

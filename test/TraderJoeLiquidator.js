@@ -13,6 +13,7 @@ const JToken = artifacts.require('JToken')
 describe('TraderJoeLiquidator', function () {
   const USDC_WHALE = '0x2d1944bD960CDE5d8b14E5f8093d9E017f4Ce5A8'
   const WAVAX_WHALE = '0xda6ad74619e62503C4cbefbE02aE05c8F4314591'
+  const WETH_WHALE = '0x77e4ff5564a36be56c23039278ab76b784e0e9f0'
 
   const JOETROLLER = '0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC'
   const PRICE_ORACLE = '0xe34309613B061545d42c4160ec4d64240b114482'
@@ -29,6 +30,18 @@ describe('TraderJoeLiquidator', function () {
   const WAVAX = '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7'
   const WAVAX_DECIMALS = 18
 
+  const jWETH = '0x929f5caB61DFEc79a5431a7734a68D714C4633fa'
+  const jWETH_DECIMALS = 8
+
+  const WETH = '0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB'
+  const WETH_DECIMALS = 18
+
+  const jDAI = '0xc988c170d0E38197DC634A45bF00169C7Aa7CA19'
+  const jDAI_DECIMALS = 8
+
+  const DAI = '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70'
+  const DAI_DECIMALS = 18
+
   describe('Liquidations', function () {
     let signersIndex = 0
 
@@ -40,6 +53,9 @@ describe('TraderJoeLiquidator', function () {
     let usdcToken
     let jAVAXToken
     let wavaxToken
+    let wethToken
+    let jWETHToken
+    let jDAIToken
 
     before(async function () {
       TraderJoeLiquidator = await ethers.getContractFactory('TraderJoeLiquidator')
@@ -54,8 +70,11 @@ describe('TraderJoeLiquidator', function () {
       usdcToken = await IERC20.at(USDC)
       jAVAXToken = await JCollateralCapErc20.at(jAVAX)
       wavaxToken = await IERC20.at(WAVAX)
+      wethToken = await IERC20.at(WETH)
+      jWETHToken = await JCollateralCapErc20.at(jWETH)
+      jDAIToken = await JCollateralCapErc20.at(jDAI)
 
-      // impersonate whale
+      // impersonate whales
       await hre.network.provider.request({
         method: 'hardhat_impersonateAccount',
         params: [USDC_WHALE],
@@ -63,14 +82,19 @@ describe('TraderJoeLiquidator', function () {
       await hre.network.provider.request({
         method: 'hardhat_impersonateAccount',
         params: [WAVAX_WHALE],
+      })
+      await hre.network.provider.request({
+        method: 'hardhat_impersonateAccount',
+        params: [WETH_WHALE],
       })
       // set balance to cover gas
       await network.provider.send('hardhat_setBalance', [USDC_WHALE, '0x6750000000000000000000000'])
       await network.provider.send('hardhat_setBalance', [WAVAX_WHALE, '0x6750000000000000000000000'])
+      await network.provider.send('hardhat_setBalance', [WETH_WHALE, '0x6750000000000000000000000'])
     })
 
     afterEach(async function () {
-      // stop impersonating whale
+      // stop impersonating whales
       await hre.network.provider.request({
         method: 'hardhat_stopImpersonatingAccount',
         params: [USDC_WHALE],
@@ -78,6 +102,10 @@ describe('TraderJoeLiquidator', function () {
       await hre.network.provider.request({
         method: 'hardhat_stopImpersonatingAccount',
         params: [WAVAX_WHALE],
+      })
+      await hre.network.provider.request({
+        method: 'hardhat_stopImpersonatingAccount',
+        params: [WETH_WHALE],
       })
     })
 
@@ -96,7 +124,7 @@ describe('TraderJoeLiquidator', function () {
       await joetroller.enterMarkets([jAVAXToken.address], { from: BORROWER })
 
       // borrow
-      const avaxPriceUSD = await getAvaxPriceUSD()
+      const avaxPriceUSD = await getAssetPriceInUSD(jAVAX, WAVAX_DECIMALS)
       console.log('Avax price', avaxPriceUSD)
       const supplyValueUSD = (avaxPriceUSD * supplyAmount) / pow(10, WAVAX_DECIMALS)
       console.log('Supply value USD', supplyValueUSD)
@@ -141,6 +169,38 @@ describe('TraderJoeLiquidator', function () {
       await traderJoeLiquidator.liquidate(BORROWER, jAVAXToken.address, jAVAXToken.address)
     })
 
+    it('should repay DAI and seize WETH', async () => {
+      const BORROWER = await initializeFreshAccount()
+
+      // fund borrower
+      const supplyAmount = new BN(10).pow(new BN(WETH_DECIMALS)).muln(10)
+      await wethToken.transfer(BORROWER, supplyAmount, { from: WETH_WHALE })
+
+      // mint jWETH
+      await wethToken.approve(jWETHToken.address, supplyAmount, { from: BORROWER })
+      await jWETHToken.mint(supplyAmount, { from: BORROWER })
+
+      // enter market
+      await joetroller.enterMarkets([jWETHToken.address], { from: BORROWER })
+
+      // borrow DAI
+      const wethPriceUSD = await getAssetPriceInUSD(jWETH, WETH_DECIMALS)
+      const supplyValueUSD = (wethPriceUSD * supplyAmount) / pow(10, WETH_DECIMALS)
+      const borrowAmount = new BN(supplyValueUSD)
+        .mul(new BN(10).pow(new BN(DAI_DECIMALS)))
+        .muln(0.75)
+        .muln(9991 / 10000) // NOTES : adjust ratio to have account with positive shortfall
+      console.log('Borrow amount', borrowAmount.toString())
+      await jDAIToken.borrow(borrowAmount, { from: BORROWER })
+
+      // accrue interest on borrow
+      const block = await web3.eth.getBlockNumber()
+      // NOTE : adjust block number to have account with positive shortfall
+      await time.advanceBlockTo(block + 50000)
+
+      await traderJoeLiquidator.liquidate(BORROWER, jDAIToken.address, jWETHToken.address)
+    })
+
     async function initializeFreshAccount() {
       const accounts = await hre.ethers.getSigners()
       const borrower = accounts[signersIndex].address
@@ -149,10 +209,10 @@ describe('TraderJoeLiquidator', function () {
       return borrower
     }
 
-    async function getAvaxPriceUSD() {
+    async function getAssetPriceInUSD(asset, decimals) {
       const priceOracle = await PriceOracle.at(PRICE_ORACLE)
-      const avaxPrice = await priceOracle.getUnderlyingPrice(jAVAX)
-      return avaxPrice / pow(10, WAVAX_DECIMALS)
+      const price = await priceOracle.getUnderlyingPrice(asset)
+      return price / pow(10, decimals)
     }
   })
 })
