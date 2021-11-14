@@ -12,7 +12,7 @@ const JToken = artifacts.require('JToken')
 
 describe('TraderJoeLiquidator', function () {
   const USDC_WHALE = '0x2d1944bD960CDE5d8b14E5f8093d9E017f4Ce5A8'
-  const WAVAX_WHALE = '0xda6ad74619e62503C4cbefbE02aE05c8F4314591'
+  const WAVAX_WHALE = '0xf3275cb2d23d38df9f933cd0deba301450f1c948'
   const WETH_WHALE = '0x77e4ff5564a36be56c23039278ab76b784e0e9f0'
 
   const JOETROLLER = '0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC'
