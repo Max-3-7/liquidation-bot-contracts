@@ -35,6 +35,16 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         joeRouter = JoeRouter02(0x60aE616a2155Ee3d9A68541Ba4544862310933d4);
     }
 
+    function withdraw(address asset) external {
+        require(msg.sender == owner, 'not owner');
+
+        uint256 balance = IERC20(asset).balanceOf(address(this));
+        require(balance > 0, 'not enough balance');
+
+        IERC20(asset).approve(address(this), balance);
+        IERC20(asset).transfer(owner, balance);
+    }
+
     function liquidate(
         address borrower,
         address repayAsset,
@@ -58,7 +68,6 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         console.log('Repay amount', repayAmount);
 
         // NOTE : borrowed/seized and borrowed/repayed assets have to be different because of nonReentrant functions
-        // TODO: handle all possible cases
         address borrowAsset;
         uint256 borrowAmount;
         if (repayAsset == JAVAX || collateralAsset == JAVAX) {
@@ -71,13 +80,13 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
                 (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) /
                 10**18 /
                 10**18 /
-                10**12; // TODO: DECIMALS 18-repayAssetUnderlyingDecimals?
+                10**12;
         } else {
             borrowAsset = JAVAX;
             borrowAmount =
                 (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) /
                 priceOracle.getUnderlyingPrice(JToken(JAVAX)) /
-                10**18; // TODO: DECIMALS ?
+                10**18;
         }
 
         console.log('BORROW ASSET', borrowAsset);

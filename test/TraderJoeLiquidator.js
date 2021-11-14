@@ -50,6 +50,7 @@ describe('TraderJoeLiquidator', function () {
 
   describe('Liquidations', function () {
     let signersIndex = 0
+    let owner
 
     let TraderJoeLiquidator
     let traderJoeLiquidator
@@ -65,6 +66,7 @@ describe('TraderJoeLiquidator', function () {
     let jUSDTToken
 
     before(async function () {
+      owner = await initializeFreshAccount()
       TraderJoeLiquidator = await ethers.getContractFactory('TraderJoeLiquidator')
     })
 
@@ -148,7 +150,11 @@ describe('TraderJoeLiquidator', function () {
       await traderJoeLiquidator.liquidate(BORROWER, jUSDCtoken.address, jAVAXToken.address)
 
       const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.065
-      expect(Number(await usdcToken.balanceOf(traderJoeLiquidator.address))).to.be.at.least(expectedProfitInUSDC)
+      const actualProfitInUSDC = Number(await usdcToken.balanceOf(traderJoeLiquidator.address))
+      expect(actualProfitInUSDC).to.be.at.least(expectedProfitInUSDC)
+
+      await traderJoeLiquidator.withdraw(USDC, { from: owner })
+      expect(Number(await usdcToken.balanceOf(owner))).to.equal(actualProfitInUSDC)
     })
 
     it('should repay AVAX and seize AVAX', async () => {
