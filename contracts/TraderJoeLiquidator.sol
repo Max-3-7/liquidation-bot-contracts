@@ -61,20 +61,17 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         // TODO: handle all possible cases
         address borrowAsset;
         uint256 borrowAmount;
-        if (repayAsset == JAVAX) {
-            borrowAsset = JUSDC;
+        if (repayAsset == JAVAX || collateralAsset == JAVAX) {
+            if (repayAsset != JUSDT && collateralAsset != JUSDT) {
+                borrowAsset = JUSDT;
+            } else {
+                borrowAsset = JUSDC;
+            }
             borrowAmount =
                 (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) /
                 10**18 /
                 10**18 /
                 10**12; // TODO: DECIMALS 18-repayAssetUnderlyingDecimals?
-        } else if (collateralAsset == JAVAX) {
-            borrowAsset = JUSDT;
-            borrowAmount =
-                (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) /
-                10**18 /
-                10**18 /
-                10**12; // TODO: DECIMALS ?
         } else {
             borrowAsset = JAVAX;
             borrowAmount =
@@ -117,7 +114,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         console.log('repayAssetUnderlying', repayAssetUnderlying);
         uint256 repayAssetUnderlyingTokens = getAmountOutMin(token, repayAssetUnderlying, amount);
         swap(token, repayAssetUnderlying, amount, repayAssetUnderlyingTokens, address(this));
-        console.log('Repay asset amount', repayAssetUnderlyingTokens);
+        console.log('repayAssetUnderlyingTokens', repayAssetUnderlyingTokens);
 
         console.log(
             'Seized tokens before liquidate borrow',
@@ -125,11 +122,14 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         );
 
         // 2. liquidateBorrow
-        uint256 maxRepayAmount = JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower) *
-            joetroller.closeFactorMantissa();
+        uint256 maxRepayAmount = (JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower) *
+            joetroller.closeFactorMantissa()) / 10**18;
+        console.log('Max repay amount', maxRepayAmount);
         if (repayAssetUnderlyingTokens > maxRepayAmount) {
             repayAssetUnderlyingTokens = maxRepayAmount;
         }
+
+        console.log('final repayAssetUnderlyingTokens', repayAssetUnderlyingTokens);
         IERC20(repayAssetUnderlying).approve(repayAsset, repayAssetUnderlyingTokens);
         require(
             JCollateralCapErc20(repayAsset).liquidateBorrow(

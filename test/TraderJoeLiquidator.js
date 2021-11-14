@@ -42,6 +42,12 @@ describe('TraderJoeLiquidator', function () {
   const DAI = '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70'
   const DAI_DECIMALS = 18
 
+  const jUSDT = '0x8b650e26404AC6837539ca96812f0123601E4448'
+  const jUSDT_DECIMALS = 8
+
+  const USDT = '0xc7198437980c041c805A1EDcbA50c1Ce5db95118'
+  const USDT_DECIMALS = 6
+
   describe('Liquidations', function () {
     let signersIndex = 0
 
@@ -56,6 +62,7 @@ describe('TraderJoeLiquidator', function () {
     let wethToken
     let jWETHToken
     let jDAIToken
+    let jUSDTToken
 
     before(async function () {
       TraderJoeLiquidator = await ethers.getContractFactory('TraderJoeLiquidator')
@@ -73,6 +80,7 @@ describe('TraderJoeLiquidator', function () {
       wethToken = await IERC20.at(WETH)
       jWETHToken = await JCollateralCapErc20.at(jWETH)
       jDAIToken = await JCollateralCapErc20.at(jDAI)
+      jUSDTToken = await JCollateralCapErc20.at(jUSDT)
 
       // impersonate whales
       await hre.network.provider.request({
@@ -199,6 +207,37 @@ describe('TraderJoeLiquidator', function () {
       await time.advanceBlockTo(block + 50000)
 
       await traderJoeLiquidator.liquidate(BORROWER, jDAIToken.address, jWETHToken.address)
+    })
+
+    it('should repay USDT and seize AVAX', async () => {
+      const BORROWER = await initializeFreshAccount()
+
+      // fund borrower
+      const supplyAmount = new BN(10).pow(new BN(WAVAX_DECIMALS)).muln(50)
+      await wavaxToken.transfer(BORROWER, supplyAmount, { from: WAVAX_WHALE })
+
+      // mint jAVAX
+      await wavaxToken.approve(jAVAXToken.address, supplyAmount, { from: BORROWER })
+      await jAVAXToken.mint(supplyAmount, { from: BORROWER })
+
+      // enter market
+      await joetroller.enterMarkets([jAVAXToken.address], { from: BORROWER })
+
+      // borrow
+      const avaxPriceUSD = await getAssetPriceInUSD(jAVAX, WAVAX_DECIMALS)
+      console.log('Avax price', avaxPriceUSD)
+      const supplyValueUSD = (avaxPriceUSD * supplyAmount) / pow(10, WAVAX_DECIMALS)
+      console.log('Supply value USD', supplyValueUSD)
+      const borrowAmount = supplyValueUSD * pow(10, USDT_DECIMALS) * 0.75 * (9997 / 10000) // NOTES : adjust ratio to have account with positive shortfall
+      console.log('Borrow amount', borrowAmount)
+      await jUSDTToken.borrow(Math.trunc(borrowAmount), { from: BORROWER })
+
+      // accrue interest on borrow
+      const block = await web3.eth.getBlockNumber()
+      // NOTE : adjust block number to have account with positive shortfall
+      await time.advanceBlockTo(block + 50000)
+
+      await traderJoeLiquidator.liquidate(BORROWER, jUSDTToken.address, jAVAXToken.address)
     })
 
     async function initializeFreshAccount() {
