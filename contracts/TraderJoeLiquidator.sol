@@ -79,7 +79,8 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
             borrowAsset = JAVAX;
             borrowAmount =
                 (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) /
-                priceOracle.getUnderlyingPrice(JToken(JAVAX)) / 10**18; // TODO: DECIMALS ?
+                priceOracle.getUnderlyingPrice(JToken(JAVAX)) /
+                10**18; // TODO: DECIMALS ?
         }
 
         console.log('BORROW ASSET', borrowAsset);
@@ -124,7 +125,8 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         );
 
         // 2. liquidateBorrow
-        uint256 maxRepayAmount = JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower) * joetroller.closeFactorMantissa();
+        uint256 maxRepayAmount = JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower) *
+            joetroller.closeFactorMantissa();
         if (repayAssetUnderlyingTokens > maxRepayAmount) {
             repayAssetUnderlyingTokens = maxRepayAmount;
         }
