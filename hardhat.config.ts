@@ -4,6 +4,10 @@ import { BigNumber } from 'ethers'
 import '@nomiclabs/hardhat-waffle'
 import '@nomiclabs/hardhat-truffle5'
 import 'hardhat-deploy'
+import * as dotenv from 'dotenv'
+
+dotenv.config()
+const DEPLOYER = process.env.CONTRACT_DEPLOYER
 
 // When using the hardhat network, you may choose to fork Fuji or Avalanche Mainnet
 // This will allow you to debug contracts using the hardhat network while keeping the current network state
@@ -89,9 +93,8 @@ export default {
     },
     fuji: {
       url: 'https://api.avax-test.network/ext/bc/C/rpc',
-      gasPrice: 225000000000,
       chainId: 43113,
-      accounts: [],
+      accounts: [DEPLOYER],
     },
     mainnet: {
       url: 'https://api.avax.network/ext/bc/C/rpc',
@@ -99,6 +102,9 @@ export default {
       chainId: 43114,
       accounts: [],
     },
+  },
+  namedAccounts: {
+    deployer: 0,
   },
   mocha: {
     timeout: 200000,

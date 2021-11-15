@@ -1,12 +1,13 @@
 import { Contract, ContractFactory } from 'ethers'
 import { ethers } from 'hardhat'
 
-const main = async (): Promise<any> => {
-  const Coin: ContractFactory = await ethers.getContractFactory('ExampleERC20')
-  const coin: Contract = await Coin.deploy()
+// npx hardhat --network fuji run scripts/deploy.ts
 
-  await coin.deployed()
-  console.log(`Coin deployed to: ${coin.address}`)
+const main = async (): Promise<any> => {
+  const TraderJoeLiquidator: ContractFactory = await ethers.getContractFactory('TraderJoeLiquidator')
+  const traderJoeLiquidator: Contract = await TraderJoeLiquidator.deploy({ gasLimit: 400000 })
+  await traderJoeLiquidator.deployed()
+  console.log(`TraderJoeLiquidator deployed to: ${traderJoeLiquidator.address}`)
 }
 
 main()

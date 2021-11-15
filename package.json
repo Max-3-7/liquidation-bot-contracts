@@ -54,6 +54,7 @@
   "dependencies": {
     "@chainlink/contracts": "^0.2.2",
     "@chainlink/token": "^1.1.0",
+    "dotenv": "^10.0.0",
     "typescript": "^4.3.5"
   },
   "engines": {
