@@ -134,18 +134,14 @@ describe('TraderJoeLiquidator', function () {
       await joetroller.enterMarkets([jAVAXToken.address], { from: BORROWER })
 
       // borrow
-      const avaxPriceUSD = await getAssetPriceInUSD(jAVAX, WAVAX_DECIMALS)
-      console.log('Avax price', avaxPriceUSD)
-      const supplyValueUSD = (avaxPriceUSD * supplyAmount) / pow(10, WAVAX_DECIMALS)
-      console.log('Supply value USD', supplyValueUSD)
-      const borrowAmount = supplyValueUSD * pow(10, USDC_DECIMALS) * 0.75 * (9999 / 10000) // NOTES : adjust ratio to have account with positive shortfall
-      console.log('Borrow amount', borrowAmount)
-      await jUSDCtoken.borrow(Math.trunc(borrowAmount), { from: BORROWER })
+      const maxBorrow = await getMaxBorrowAmount(BORROWER, jUSDC, USDC_DECIMALS)
+      const borrowAmount = maxBorrow.mul(new BN(9999)).div(new BN(10000))
+      console.log('Borrow amount', borrowAmount.toString())
+      await jUSDCtoken.borrow(borrowAmount, { from: BORROWER })
 
       // accrue interest on borrow
       const block = await web3.eth.getBlockNumber()
-      // NOTE : adjust block number to have account with positive shortfall
-      await time.advanceBlockTo(block + 50000)
+      await time.advanceBlockTo(block + 50000) // NOTE : adjust block number to have account with positive shortfall
 
       await traderJoeLiquidator.liquidate(BORROWER, jUSDCtoken.address, jAVAXToken.address)
 
@@ -198,12 +194,8 @@ describe('TraderJoeLiquidator', function () {
       await joetroller.enterMarkets([jWETHToken.address], { from: BORROWER })
 
       // borrow DAI
-      const wethPriceUSD = await getAssetPriceInUSD(jWETH, WETH_DECIMALS)
-      const supplyValueUSD = (wethPriceUSD * supplyAmount) / pow(10, WETH_DECIMALS)
-      const borrowAmount = new BN(supplyValueUSD)
-        .mul(new BN(10).pow(new BN(DAI_DECIMALS)))
-        .muln(0.75)
-        .muln(9991 / 10000) // NOTES : adjust ratio to have account with positive shortfall
+      const maxBorrow = await getMaxBorrowAmount(BORROWER, jDAI, DAI_DECIMALS)
+      const borrowAmount = maxBorrow.mul(new BN(9999)).div(new BN(10000))
       console.log('Borrow amount', borrowAmount.toString())
       await jDAIToken.borrow(borrowAmount, { from: BORROWER })
 
@@ -230,13 +222,10 @@ describe('TraderJoeLiquidator', function () {
       await joetroller.enterMarkets([jAVAXToken.address], { from: BORROWER })
 
       // borrow
-      const avaxPriceUSD = await getAssetPriceInUSD(jAVAX, WAVAX_DECIMALS)
-      console.log('Avax price', avaxPriceUSD)
-      const supplyValueUSD = (avaxPriceUSD * supplyAmount) / pow(10, WAVAX_DECIMALS)
-      console.log('Supply value USD', supplyValueUSD)
-      const borrowAmount = supplyValueUSD * pow(10, USDT_DECIMALS) * 0.75 * (9997 / 10000) // NOTES : adjust ratio to have account with positive shortfall
-      console.log('Borrow amount', borrowAmount)
-      await jUSDTToken.borrow(Math.trunc(borrowAmount), { from: BORROWER })
+      const maxBorrow = await getMaxBorrowAmount(BORROWER, jUSDT, USDT_DECIMALS)
+      const borrowAmount = maxBorrow.mul(new BN(9999)).div(new BN(10000))
+      console.log('Borrow amount', borrowAmount.toString())
+      await jUSDTToken.borrow(borrowAmount, { from: BORROWER })
 
       // accrue interest on borrow
       const block = await web3.eth.getBlockNumber()
@@ -254,10 +243,14 @@ describe('TraderJoeLiquidator', function () {
       return borrower
     }
 
-    async function getAssetPriceInUSD(asset, decimals) {
+    async function getMaxBorrowAmount(borrower, asset, underlyingDecimals) {
+      const { liquidity } = await traderJoeLiquidator.getAccountLiquidity(borrower)
       const priceOracle = await PriceOracle.at(PRICE_ORACLE)
       const price = await priceOracle.getUnderlyingPrice(asset)
-      return price / pow(10, decimals)
+      const maxBorrow = new BN(liquidity.toString())
+        .mul(pow(10, underlyingDecimals))
+        .div(price.div(pow(10, 18 - underlyingDecimals)))
+      return maxBorrow
     }
   })
 })

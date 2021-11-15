@@ -45,6 +45,13 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         IERC20(asset).transfer(owner, balance);
     }
 
+    function getAccountLiquidity(address borrower) external view returns (uint256 liquidity, uint256 shortfall) {
+        // liquidity and shortfall in USD scaled up by 1e18
+        (uint256 error, uint256 _liquidity, uint256 _shortfall) = joetroller.getAccountLiquidity(borrower);
+        require(error == 0, 'error');
+        return (_liquidity, _shortfall);
+    }
+
     function liquidate(
         address borrower,
         address repayAsset,
