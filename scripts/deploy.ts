@@ -5,7 +5,7 @@ import { ethers } from 'hardhat'
 
 const main = async (): Promise<any> => {
   const TraderJoeLiquidator: ContractFactory = await ethers.getContractFactory('TraderJoeLiquidator')
-  const traderJoeLiquidator: Contract = await TraderJoeLiquidator.deploy({ gasLimit: 400000 })
+  const traderJoeLiquidator: Contract = await TraderJoeLiquidator.deploy({ gasLimit: 4000000 })
   await traderJoeLiquidator.deployed()
   console.log(`TraderJoeLiquidator deployed to: ${traderJoeLiquidator.address}`)
 }
