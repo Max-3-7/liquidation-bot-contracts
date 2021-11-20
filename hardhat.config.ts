@@ -100,7 +100,17 @@ export default {
       url: 'https://api.avax.network/ext/bc/C/rpc',
       gasPrice: 225000000000,
       chainId: 43114,
-      accounts: [],
+      accounts: [DEPLOYER],
+    },
+    rinkeby: {
+      url: `https://rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [DEPLOYER],
+      chainId: 4,
+      live: true,
+      saveDeployments: true,
+      tags: ['staging'],
+      gasPrice: 10000000000,
+      gasMultiplier: 2,
     },
   },
   namedAccounts: {

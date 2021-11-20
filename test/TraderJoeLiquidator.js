@@ -13,9 +13,10 @@ const JToken = artifacts.require('JToken')
 describe('TraderJoeLiquidator', function () {
   const USDC_WHALE = '0x1af3088078b5b887179925b8c5eb7b381697fec6'
   const WAVAX_WHALE = '0xf3275cb2d23d38df9f933cd0deba301450f1c948'
-  const WETH_WHALE = '0x77e4ff5564a36be56c23039278ab76b784e0e9f0'
+  const WETH_WHALE = '0xc32d7f8b71b6f79c9c2d0df200fc76fd6028d215'
 
   const JOETROLLER = '0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC'
+  const JOEROUTER02 = '0x60aE616a2155Ee3d9A68541Ba4544862310933d4'
   const PRICE_ORACLE = '0xe34309613B061545d42c4160ec4d64240b114482'
 
   const USDC = '0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664'
@@ -71,7 +72,7 @@ describe('TraderJoeLiquidator', function () {
     })
 
     beforeEach(async function () {
-      traderJoeLiquidator = await TraderJoeLiquidator.deploy()
+      traderJoeLiquidator = await TraderJoeLiquidator.deploy(JOETROLLER, JOEROUTER02, WAVAX, USDC, jAVAX, jUSDC, jUSDT)
       await traderJoeLiquidator.deployed()
 
       joetroller = await Joetroller.at(JOETROLLER)
@@ -135,17 +136,17 @@ describe('TraderJoeLiquidator', function () {
 
       // borrow
       const maxBorrow = await getMaxBorrowAmount(BORROWER, jUSDC, USDC_DECIMALS)
-      const borrowAmount = maxBorrow.mul(new BN(9999)).div(new BN(10000))
+      const borrowAmount = maxBorrow//.mul(new BN(9999)).div(new BN(10000))
       console.log('Borrow amount', borrowAmount.toString())
       await jUSDCtoken.borrow(borrowAmount, { from: BORROWER })
 
       // accrue interest on borrow
       const block = await web3.eth.getBlockNumber()
-      await time.advanceBlockTo(block + 50000) // NOTE : adjust block number to have account with positive shortfall
+      await time.advanceBlockTo(block + 10000) // NOTE : adjust block number to have account with positive shortfall
 
       await traderJoeLiquidator.liquidate(BORROWER, jUSDCtoken.address, jAVAXToken.address)
 
-      const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.065
+      const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.05
       const actualProfitInUSDC = Number(await usdcToken.balanceOf(traderJoeLiquidator.address))
       expect(actualProfitInUSDC).to.be.at.least(expectedProfitInUSDC)
 
@@ -168,13 +169,13 @@ describe('TraderJoeLiquidator', function () {
       await joetroller.enterMarkets([jAVAXToken.address], { from: BORROWER })
 
       // borrow AVAX
-      const borrowAmount = supplyAmount.muln(0.75)
+      const borrowAmount = supplyAmount.muln(75).divn(100)
       await jAVAXToken.borrow(borrowAmount, { from: BORROWER })
 
       // accrue interest on borrow
       const block = await web3.eth.getBlockNumber()
       // NOTE : adjust block number to have account with positive shortfall
-      await time.advanceBlockTo(block + 50000)
+      await time.advanceBlockTo(block + 10000)
 
       await traderJoeLiquidator.liquidate(BORROWER, jAVAXToken.address, jAVAXToken.address)
     })
@@ -195,14 +196,14 @@ describe('TraderJoeLiquidator', function () {
 
       // borrow DAI
       const maxBorrow = await getMaxBorrowAmount(BORROWER, jDAI, DAI_DECIMALS)
-      const borrowAmount = maxBorrow.mul(new BN(9999)).div(new BN(10000))
+      const borrowAmount = maxBorrow//.mul(new BN(9999)).div(new BN(10000))
       console.log('Borrow amount', borrowAmount.toString())
       await jDAIToken.borrow(borrowAmount, { from: BORROWER })
 
       // accrue interest on borrow
       const block = await web3.eth.getBlockNumber()
       // NOTE : adjust block number to have account with positive shortfall
-      await time.advanceBlockTo(block + 50000)
+      await time.advanceBlockTo(block + 10000)
 
       await traderJoeLiquidator.liquidate(BORROWER, jDAIToken.address, jWETHToken.address)
     })
@@ -223,14 +224,14 @@ describe('TraderJoeLiquidator', function () {
 
       // borrow
       const maxBorrow = await getMaxBorrowAmount(BORROWER, jUSDT, USDT_DECIMALS)
-      const borrowAmount = maxBorrow.mul(new BN(9999)).div(new BN(10000))
+      const borrowAmount = maxBorrow//.mul(new BN(9999)).div(new BN(10000))
       console.log('Borrow amount', borrowAmount.toString())
       await jUSDTToken.borrow(borrowAmount, { from: BORROWER })
 
       // accrue interest on borrow
       const block = await web3.eth.getBlockNumber()
       // NOTE : adjust block number to have account with positive shortfall
-      await time.advanceBlockTo(block + 50000)
+      await time.advanceBlockTo(block + 10000)
 
       await traderJoeLiquidator.liquidate(BORROWER, jUSDTToken.address, jAVAXToken.address)
     })
@@ -263,14 +264,14 @@ describe('TraderJoeLiquidator', function () {
 
       // borrow
       const maxBorrow = await getMaxBorrowAmount(BORROWER, jUSDT, USDT_DECIMALS)
-      const borrowAmount = maxBorrow.mul(new BN(9999)).div(new BN(10000))
+      const borrowAmount = maxBorrow//.mul(new BN(9999)).div(new BN(10000))
       console.log('Borrow amount', borrowAmount.toString())
       await jUSDTToken.borrow(borrowAmount, { from: BORROWER })
 
       // accrue interest on borrow
       const block = await web3.eth.getBlockNumber()
       // NOTE : adjust block number to have account with positive shortfall
-      await time.advanceBlockTo(block + 50000)
+      await time.advanceBlockTo(block + 10000)
 
       await traderJoeLiquidator.liquidate(BORROWER, jUSDTToken.address, jWETHToken.address)
     })

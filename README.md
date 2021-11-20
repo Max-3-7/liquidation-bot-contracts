@@ -2,6 +2,8 @@
 
 Bot to automatically liquidate undercollaterazed TraderJoe accounts.
 
+Rinkeby contract address : 0x931dCCD87F217BEd0697b555350fd6fE0B5E3B2a
+
 ## Installation
 
 ```
@@ -17,20 +19,23 @@ npx hardhat test
 
 ## Contract deployment
 
-Deploy to Fuji testnet
+Deploy to testnet
+
 ```
-npx hardhat --network fuji run scripts/deploy.ts
+npx hardhat --network rinkeby run scripts/deploy.ts
 ```
 
 Deploy to Avalanche mainnet
+
 ```
 npx hardhat --network mainnet run scripts/deploy.ts
 ```
 
-## Configuration 
+## Configuration
 
 ### Environment variables
 
-|ENV Variable|Description|
-|-|-|
-|CONTRACT_DEPLOYER|Avalanche C-Chain address of the account that will execute the liquidations
+| ENV Variable      | Description                                                                 |
+| ----------------- | --------------------------------------------------------------------------- |
+| CONTRACT_DEPLOYER | Avalanche C-Chain address of the account that will execute the liquidations |
+| INFURA_API_KEY    | Infura API KEY                                                              |

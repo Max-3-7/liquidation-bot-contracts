@@ -15,18 +15,34 @@ import 'hardhat/console.sol';
 contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
     using SafeMath for uint256;
 
-    address private constant WAVAX = 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7;
-    address private constant JAVAX = 0xC22F01ddc8010Ee05574028528614634684EC29e;
-    address private constant USDC = 0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664;
-    address private constant JUSDC = 0xEd6AaF91a2B084bd594DBd1245be3691F9f637aC;
-    address private constant JUSDT = 0x8b650e26404AC6837539ca96812f0123601E4448;
-    address private constant JOETROLLER = 0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC;
-    address private constant JOEROUTER02 = 0x60aE616a2155Ee3d9A68541Ba4544862310933d4;
+    address private WAVAX;
+    address private JAVAX;
+    address private USDC;
+    address private JUSDC;
+    address private JUSDT;
+    address private JOETROLLER;
+    address private JOEROUTER02;
 
     address public owner;
 
-    constructor() {
+    constructor(
+        address joetroller,
+        address joeRouter02,
+        address wavax,
+        address usdc,
+        address javax,
+        address jusdc,
+        address jusdt
+    ) {
         owner = msg.sender;
+
+        JOETROLLER = joetroller;
+        JOEROUTER02 = joeRouter02;
+        WAVAX = wavax;
+        JAVAX = javax;
+        JUSDC = jusdc;
+        JUSDT = jusdt;
+        USDC = usdc;
     }
 
     function withdraw(address asset) external {
