@@ -65,41 +65,61 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
 
         uint256 borrowBalance = JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower);
         console.log('Borrow balance: ', borrowBalance);
-        console.log('Collateral balance: ', JCollateralCapErc20(collateralAsset).balanceOfUnderlying(borrower));
+        uint256 collateralBalance = JCollateralCapErc20(collateralAsset).balanceOfUnderlying(borrower);
+        uint256 collateralBalanceUSD = (collateralBalance * priceOracle.getUnderlyingPrice(JToken(collateralAsset))) /
+            10**18;
+        console.log('Collateral balance: ', collateralBalance);
 
         (, uint256 liquidity, uint256 shortfall) = joetroller.getAccountLiquidity(borrower);
         console.log('Liquidity', liquidity);
         console.log('Shortfall', shortfall);
 
-        uint256 repayAmount = borrowBalance * joetroller.closeFactorMantissa();
+        uint256 repayAmount = (borrowBalance * joetroller.closeFactorMantissa()) / 10**18;
+        uint256 repayAmountUSD = (repayAmount * priceOracle.getUnderlyingPrice(JToken(repayAsset))) / 10**18;
         console.log('Repay amount', repayAmount);
 
-        // NOTE : borrowed/seized and borrowed/repayed assets have to be different because of nonReentrant functions
+        // NOTE : make sure the borrower has enough collateral in a single token for the max repay amount
+        console.log('repayAmountUSD', repayAmountUSD);
+        console.log('collateralBalanceUSD', collateralBalanceUSD);
+        console.log('joetroller.liquidationIncentiveMantissa()', joetroller.liquidationIncentiveMantissa());
+        if (repayAmountUSD >= collateralBalanceUSD) {
+            repayAmount = ((((collateralBalanceUSD * 10**18) / joetroller.liquidationIncentiveMantissa()) * 10**18) /
+                priceOracle.getUnderlyingPrice(JToken(repayAsset)));
+        }
+
+        console.log('repayamount before borrow asset', repayAmount);
+
+        (address borrowAsset, uint256 borrowAmount) = getBorrowAssetAndAmount(repayAsset, collateralAsset, repayAmount);
+        console.log('BORROW ASSET', borrowAsset);
+        console.log('BORROW AMOUNT', borrowAmount);
+
+        JCollateralCapErc20(borrowAsset).flashLoan(this, address(this), borrowAmount, data);
+    }
+
+    // NOTE : borrowed/seized and borrowed/repayed assets have to be different because of nonReentrant functions
+    function getBorrowAssetAndAmount(
+        address repayAsset,
+        address collateralAsset,
+        uint256 repayAmount
+    ) private view returns (address, uint256) {
         address borrowAsset;
         uint256 borrowAmount;
+
         if (repayAsset == JAVAX || collateralAsset == JAVAX) {
             if (repayAsset != JUSDT && collateralAsset != JUSDT) {
                 borrowAsset = JUSDT;
             } else {
                 borrowAsset = JUSDC;
             }
-            borrowAmount =
-                (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) /
-                10**18 /
-                10**18 /
-                10**12;
+            borrowAmount = (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) / 10**18 / 10**12;
         } else {
             borrowAsset = JAVAX;
             borrowAmount =
                 (priceOracle.getUnderlyingPrice(JToken(repayAsset)) * repayAmount) /
-                priceOracle.getUnderlyingPrice(JToken(JAVAX)) /
-                10**18;
+                priceOracle.getUnderlyingPrice(JToken(JAVAX));
         }
 
-        console.log('BORROW ASSET', borrowAsset);
-        console.log('BORROW AMOUNT', borrowAmount);
-
-        JCollateralCapErc20(borrowAsset).flashLoan(this, address(this), borrowAmount, data);
+        return (borrowAsset, borrowAmount);
     }
 
     function onFlashLoan(
@@ -142,7 +162,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
             joetroller.closeFactorMantissa()) / 10**18;
         console.log('Max repay amount', maxRepayAmount);
         if (repayAssetUnderlyingTokens > maxRepayAmount) {
-            repayAssetUnderlyingTokens = maxRepayAmount;
+            repayAssetUnderlyingTokens = maxRepayAmount / joetroller.liquidationIncentiveMantissa() / 10**18;
         }
 
         console.log('final repayAssetUnderlyingTokens', repayAssetUnderlyingTokens);

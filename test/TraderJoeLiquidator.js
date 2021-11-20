@@ -11,7 +11,7 @@ const PriceOracle = artifacts.require('PriceOracle')
 const JToken = artifacts.require('JToken')
 
 describe('TraderJoeLiquidator', function () {
-  const USDC_WHALE = '0x2d1944bD960CDE5d8b14E5f8093d9E017f4Ce5A8'
+  const USDC_WHALE = '0x1af3088078b5b887179925b8c5eb7b381697fec6'
   const WAVAX_WHALE = '0xf3275cb2d23d38df9f933cd0deba301450f1c948'
   const WETH_WHALE = '0x77e4ff5564a36be56c23039278ab76b784e0e9f0'
 
@@ -233,6 +233,46 @@ describe('TraderJoeLiquidator', function () {
       await time.advanceBlockTo(block + 50000)
 
       await traderJoeLiquidator.liquidate(BORROWER, jUSDTToken.address, jAVAXToken.address)
+    })
+
+    it('should repay less than 50% of the debt when collateral value lower than max repay amount', async () => {
+      const BORROWER = await initializeFreshAccount()
+
+      // fund borrower
+      const wavaxSupplyAmount = new BN(10).pow(new BN(WAVAX_DECIMALS)).muln(20)
+      await wavaxToken.transfer(BORROWER, wavaxSupplyAmount, { from: WAVAX_WHALE })
+
+      const wethSupplyAmount = new BN(10).pow(new BN(WETH_DECIMALS)).muln(55).divn(100)
+      await wethToken.transfer(BORROWER, wethSupplyAmount, { from: WETH_WHALE })
+
+      const usdcSupplyAmount = new BN(10).pow(new BN(USDC_DECIMALS)).muln(2000)
+      await usdcToken.transfer(BORROWER, usdcSupplyAmount, { from: USDC_WHALE })
+
+      // mint jAVAX, jWETH and jUSDC
+      await wavaxToken.approve(jAVAXToken.address, wavaxSupplyAmount, { from: BORROWER })
+      await jAVAXToken.mint(wavaxSupplyAmount, { from: BORROWER })
+
+      await wethToken.approve(jWETHToken.address, wethSupplyAmount, { from: BORROWER })
+      await jWETHToken.mint(wethSupplyAmount, { from: BORROWER })
+
+      await usdcToken.approve(jUSDCtoken.address, usdcSupplyAmount, { from: BORROWER })
+      await jUSDCtoken.mint(usdcSupplyAmount, { from: BORROWER })
+
+      // enter market
+      await joetroller.enterMarkets([jAVAXToken.address, jWETHToken.address, jUSDCtoken.address], { from: BORROWER })
+
+      // borrow
+      const maxBorrow = await getMaxBorrowAmount(BORROWER, jUSDT, USDT_DECIMALS)
+      const borrowAmount = maxBorrow.mul(new BN(9999)).div(new BN(10000))
+      console.log('Borrow amount', borrowAmount.toString())
+      await jUSDTToken.borrow(borrowAmount, { from: BORROWER })
+
+      // accrue interest on borrow
+      const block = await web3.eth.getBlockNumber()
+      // NOTE : adjust block number to have account with positive shortfall
+      await time.advanceBlockTo(block + 50000)
+
+      await traderJoeLiquidator.liquidate(BORROWER, jUSDTToken.address, jWETHToken.address)
     })
 
     async function initializeFreshAccount() {
