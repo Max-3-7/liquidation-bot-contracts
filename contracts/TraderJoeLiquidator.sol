@@ -20,19 +20,13 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
     address private constant USDC = 0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664;
     address private constant JUSDC = 0xEd6AaF91a2B084bd594DBd1245be3691F9f637aC;
     address private constant JUSDT = 0x8b650e26404AC6837539ca96812f0123601E4448;
-
-    Joetroller public joetroller;
-    PriceOracle public priceOracle;
-    JoeRouter02 public joeRouter;
+    address private constant JOETROLLER = 0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC;
+    address private constant JOEROUTER02 = 0x60aE616a2155Ee3d9A68541Ba4544862310933d4;
 
     address public owner;
 
     constructor() {
         owner = msg.sender;
-
-        joetroller = Joetroller(0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC);
-        priceOracle = PriceOracle(joetroller.oracle());
-        joeRouter = JoeRouter02(0x60aE616a2155Ee3d9A68541Ba4544862310933d4);
     }
 
     function withdraw(address asset) external {
@@ -47,7 +41,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
 
     function getAccountLiquidity(address borrower) external view returns (uint256 liquidity, uint256 shortfall) {
         // liquidity and shortfall in USD scaled up by 1e18
-        (uint256 error, uint256 _liquidity, uint256 _shortfall) = joetroller.getAccountLiquidity(borrower);
+        (uint256 error, uint256 _liquidity, uint256 _shortfall) = Joetroller(JOETROLLER).getAccountLiquidity(borrower);
         require(error == 0, 'error');
         return (_liquidity, _shortfall);
     }
@@ -63,6 +57,8 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
 
         bytes memory data = abi.encode(borrower, repayAsset, collateralAsset);
 
+        PriceOracle priceOracle = PriceOracle(Joetroller(JOETROLLER).oracle());
+
         uint256 borrowBalance = JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower);
         console.log('Borrow balance: ', borrowBalance);
         uint256 collateralBalance = JCollateralCapErc20(collateralAsset).balanceOfUnderlying(borrower);
@@ -70,21 +66,21 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
             10**18;
         console.log('Collateral balance: ', collateralBalance);
 
-        (, uint256 liquidity, uint256 shortfall) = joetroller.getAccountLiquidity(borrower);
+        (, uint256 liquidity, uint256 shortfall) = Joetroller(JOETROLLER).getAccountLiquidity(borrower);
         console.log('Liquidity', liquidity);
         console.log('Shortfall', shortfall);
 
-        uint256 repayAmount = (borrowBalance * joetroller.closeFactorMantissa()) / 10**18;
+        uint256 repayAmount = (borrowBalance * Joetroller(JOETROLLER).closeFactorMantissa()) / 10**18;
         uint256 repayAmountUSD = (repayAmount * priceOracle.getUnderlyingPrice(JToken(repayAsset))) / 10**18;
         console.log('Repay amount', repayAmount);
 
         // NOTE : make sure the borrower has enough collateral in a single token for the max repay amount
         console.log('repayAmountUSD', repayAmountUSD);
         console.log('collateralBalanceUSD', collateralBalanceUSD);
-        console.log('joetroller.liquidationIncentiveMantissa()', joetroller.liquidationIncentiveMantissa());
+        console.log('joetroller.liquidationIncentiveMantissa()', Joetroller(JOETROLLER).liquidationIncentiveMantissa());
         if (repayAmountUSD >= collateralBalanceUSD) {
-            repayAmount = ((((collateralBalanceUSD * 10**18) / joetroller.liquidationIncentiveMantissa()) * 10**18) /
-                priceOracle.getUnderlyingPrice(JToken(repayAsset)));
+            repayAmount = ((((collateralBalanceUSD * 10**18) / Joetroller(JOETROLLER).liquidationIncentiveMantissa()) *
+                10**18) / priceOracle.getUnderlyingPrice(JToken(repayAsset)));
         }
 
         console.log('repayamount before borrow asset', repayAmount);
@@ -104,6 +100,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
     ) private view returns (address, uint256) {
         address borrowAsset;
         uint256 borrowAmount;
+        PriceOracle priceOracle = PriceOracle(Joetroller(JOETROLLER).oracle());
 
         if (repayAsset == JAVAX || collateralAsset == JAVAX) {
             if (repayAsset != JUSDT && collateralAsset != JUSDT) {
@@ -159,10 +156,13 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
 
         // 2. liquidateBorrow
         uint256 maxRepayAmount = (JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower) *
-            joetroller.closeFactorMantissa()) / 10**18;
+            Joetroller(JOETROLLER).closeFactorMantissa()) / 10**18;
         console.log('Max repay amount', maxRepayAmount);
         if (repayAssetUnderlyingTokens > maxRepayAmount) {
-            repayAssetUnderlyingTokens = maxRepayAmount / joetroller.liquidationIncentiveMantissa() / 10**18;
+            repayAssetUnderlyingTokens =
+                maxRepayAmount /
+                Joetroller(JOETROLLER).liquidationIncentiveMantissa() /
+                10**18;
         }
 
         console.log('final repayAssetUnderlyingTokens', repayAssetUnderlyingTokens);
@@ -188,7 +188,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         uint256 amountOutMin,
         address to
     ) private {
-        IERC20(tokenIn).approve(address(joeRouter), amountIn);
+        IERC20(tokenIn).approve(JOEROUTER02, amountIn);
 
         address[] memory path;
         if (tokenIn == WAVAX || tokenOut == WAVAX) {
@@ -202,7 +202,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
             path[2] = tokenOut;
         }
 
-        joeRouter.swapExactTokensForTokens(amountIn, amountOutMin, path, to, block.timestamp);
+        JoeRouter02(JOEROUTER02).swapExactTokensForTokens(amountIn, amountOutMin, path, to, block.timestamp);
     }
 
     function getAmountOutMin(
@@ -223,7 +223,7 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         }
 
         // same length as path
-        uint256[] memory amountOutMins = joeRouter.getAmountsOut(amountIn, path);
+        uint256[] memory amountOutMins = JoeRouter02(JOEROUTER02).getAmountsOut(amountIn, path);
 
         return amountOutMins[path.length - 1];
     }

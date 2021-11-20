@@ -4,8 +4,11 @@ import { ethers } from 'hardhat'
 // npx hardhat --network fuji run scripts/deploy.ts
 
 const main = async (): Promise<any> => {
+  const [deployer] = await ethers.getSigners();
+  console.log("Deploying contracts with the account:", deployer.address);
+
   const TraderJoeLiquidator: ContractFactory = await ethers.getContractFactory('TraderJoeLiquidator')
-  const traderJoeLiquidator: Contract = await TraderJoeLiquidator.deploy({ gasLimit: 4000000 })
+  const traderJoeLiquidator: Contract = await TraderJoeLiquidator.deploy()
   await traderJoeLiquidator.deployed()
   console.log(`TraderJoeLiquidator deployed to: ${traderJoeLiquidator.address}`)
 }
