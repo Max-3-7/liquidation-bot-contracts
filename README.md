@@ -2,7 +2,7 @@
 
 Bot to automatically liquidate undercollaterazed TraderJoe accounts.
 
-Rinkeby contract address : 0x931dCCD87F217BEd0697b555350fd6fE0B5E3B2a
+Rinkeby contract address : [0x931dCCD87F217BEd0697b555350fd6fE0B5E3B2a](https://rinkeby.etherscan.io/address/0x931dCCD87F217BEd0697b555350fd6fE0B5E3B2a)
 
 ## Installation
 
