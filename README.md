@@ -39,3 +39,7 @@ npx hardhat --network mainnet run scripts/deploy.ts
 | ----------------- | --------------------------------------------------------------------------- |
 | CONTRACT_DEPLOYER | Avalanche C-Chain address of the account that will execute the liquidations |
 | INFURA_API_KEY    | Infura API KEY                                                              |
+
+## Resources
+
+- https://github.com/ava-labs/avalanche-smart-contract-quickstart
