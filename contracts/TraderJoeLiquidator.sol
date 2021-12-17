@@ -10,8 +10,6 @@ import './interfaces/traderjoe/JTokenInterface.sol';
 import './interfaces/traderjoe/Joetroller.sol';
 import './interfaces/traderjoe/JoeRouter02.sol';
 
-import 'hardhat/console.sol';
-
 contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
     using SafeMath for uint256;
 
@@ -69,42 +67,25 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
     ) external {
         require(msg.sender == owner, 'not owner');
 
-        console.log('Repay asset', repayAsset);
-
         bytes memory data = abi.encode(borrower, repayAsset, collateralAsset);
 
         PriceOracle priceOracle = PriceOracle(Joetroller(JOETROLLER).oracle());
 
         uint256 borrowBalance = JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower);
-        console.log('Borrow balance: ', borrowBalance);
         uint256 collateralBalance = JCollateralCapErc20(collateralAsset).balanceOfUnderlying(borrower);
         uint256 collateralBalanceUSD = (collateralBalance * priceOracle.getUnderlyingPrice(JToken(collateralAsset))) /
             10**18;
-        console.log('Collateral balance: ', collateralBalance);
-
-        (, uint256 liquidity, uint256 shortfall) = Joetroller(JOETROLLER).getAccountLiquidity(borrower);
-        console.log('Liquidity', liquidity);
-        console.log('Shortfall', shortfall);
 
         uint256 repayAmount = (borrowBalance * Joetroller(JOETROLLER).closeFactorMantissa()) / 10**18;
         uint256 repayAmountUSD = (repayAmount * priceOracle.getUnderlyingPrice(JToken(repayAsset))) / 10**18;
-        console.log('Repay amount', repayAmount);
 
         // NOTE : make sure the borrower has enough collateral in a single token for the max repay amount
-        console.log('repayAmountUSD', repayAmountUSD);
-        console.log('collateralBalanceUSD', collateralBalanceUSD);
-        console.log('joetroller.liquidationIncentiveMantissa()', Joetroller(JOETROLLER).liquidationIncentiveMantissa());
         if (repayAmountUSD >= collateralBalanceUSD) {
             repayAmount = ((((collateralBalanceUSD * 10**18) / Joetroller(JOETROLLER).liquidationIncentiveMantissa()) *
                 10**18) / priceOracle.getUnderlyingPrice(JToken(repayAsset)));
         }
 
-        console.log('repayamount before borrow asset', repayAmount);
-
         (address borrowAsset, uint256 borrowAmount) = getBorrowAssetAndAmount(repayAsset, collateralAsset, repayAmount);
-        console.log('BORROW ASSET', borrowAsset);
-        console.log('BORROW AMOUNT', borrowAmount);
-
         JCollateralCapErc20(borrowAsset).flashLoan(this, address(this), borrowAmount, data);
     }
 
@@ -142,46 +123,25 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
         uint256 fee,
         bytes calldata data
     ) external override returns (bytes32) {
-        console.log('Borrowed', amount);
-        console.log('Fee', fee);
-
-        console.log('Token', token);
-
         uint256 amountOwing = amount.add(fee);
-        console.log('Amount owing', amountOwing);
-
-        console.log('BALANCE CHECK', IERC20(token).balanceOf(address(this)));
         IERC20(token).approve(msg.sender, amountOwing);
 
         (address borrower, address repayAsset, address collateralAsset) = abi.decode(data, (address, address, address));
 
-        console.log('Initiator', initiator);
-        console.log('Repay asset', repayAsset);
-
         // 1. swap token for repayAsset underlying
         address repayAssetUnderlying = JCollateralCapErc20(repayAsset).underlying();
-        console.log('repayAssetUnderlying', repayAssetUnderlying);
         uint256 repayAssetUnderlyingTokens = getAmountOutMin(token, repayAssetUnderlying, amount);
         swap(token, repayAssetUnderlying, amount, repayAssetUnderlyingTokens, address(this));
-        console.log('repayAssetUnderlyingTokens', repayAssetUnderlyingTokens);
-
-        console.log(
-            'Seized tokens before liquidate borrow',
-            JCollateralCapErc20(collateralAsset).balanceOf(address(this))
-        );
 
         // 2. liquidateBorrow
         uint256 maxRepayAmount = (JCollateralCapErc20(repayAsset).borrowBalanceCurrent(borrower) *
             Joetroller(JOETROLLER).closeFactorMantissa()) / 10**18;
-        console.log('Max repay amount', maxRepayAmount);
         if (repayAssetUnderlyingTokens > maxRepayAmount) {
             repayAssetUnderlyingTokens =
                 maxRepayAmount /
                 Joetroller(JOETROLLER).liquidationIncentiveMantissa() /
                 10**18;
         }
-
-        console.log('final repayAssetUnderlyingTokens', repayAssetUnderlyingTokens);
         IERC20(repayAssetUnderlying).approve(repayAsset, repayAssetUnderlyingTokens);
         require(
             JCollateralCapErc20(repayAsset).liquidateBorrow(
@@ -251,14 +211,11 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
     ) private {
         // redeem jAsset
         uint256 underlyingSeizedTokens = JCollateralCapErc20(seizedAsset).balanceOfUnderlying(address(this));
-        console.log('Seized tokens', underlyingSeizedTokens);
         JCollateralCapErc20(seizedAsset).redeemUnderlying(underlyingSeizedTokens);
 
         // swap seized tokens for borrowed asset
         address seizedUnderlyingAsset = JCollateralCapErc20(seizedAsset).underlying();
-        console.log('Seized tokens underlying address', seizedUnderlyingAsset);
         uint256 seizedUnderlyingTokens = IERC20(seizedUnderlyingAsset).balanceOf(address(this));
-        console.log('Seized tokens underlying', seizedUnderlyingTokens);
         swap(
             seizedUnderlyingAsset,
             token,
@@ -272,12 +229,6 @@ contract TraderJoeLiquidator is ERC3156FlashBorrowerInterface {
             uint256 tokenAmount = IERC20(token).balanceOf(address(this));
             uint256 profitTokens = tokenAmount - amountOwing;
             swap(token, USDC, profitTokens, 1, address(this));
-            console.log('Profit in USDC after repaying amountOwing', IERC20(USDC).balanceOf(address(this)));
-        } else {
-            console.log(
-                'Profit in USDC after repaying amountOwing',
-                IERC20(USDC).balanceOf(address(this)) - amountOwing
-            );
         }
     }
 }
