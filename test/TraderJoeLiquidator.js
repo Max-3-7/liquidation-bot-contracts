@@ -13,7 +13,7 @@ const JToken = artifacts.require('JToken')
 describe('TraderJoeLiquidator', function () {
   const USDC_WHALE = '0x1af3088078b5b887179925b8c5eb7b381697fec6'
   const WAVAX_WHALE = '0xf3275cb2d23d38df9f933cd0deba301450f1c948'
-  const WETH_WHALE = '0xc32d7f8b71b6f79c9c2d0df200fc76fd6028d215'
+  const WETH_WHALE = '0x405a659306373b6083dd1B7ABEE968D4e8Ef0a67'
 
   const JOETROLLER = '0xdc13687554205E5b89Ac783db14bb5bba4A1eDaC'
   const JOEROUTER02 = '0x60aE616a2155Ee3d9A68541Ba4544862310933d4'
@@ -146,7 +146,7 @@ describe('TraderJoeLiquidator', function () {
 
       await traderJoeLiquidator.liquidate(BORROWER, jUSDCtoken.address, jAVAXToken.address)
 
-      const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.05
+      const expectedProfitInUSDC = Math.trunc(borrowAmount / 2) * 0.045
       const actualProfitInUSDC = Number(await usdcToken.balanceOf(traderJoeLiquidator.address))
       expect(actualProfitInUSDC).to.be.at.least(expectedProfitInUSDC)
 
